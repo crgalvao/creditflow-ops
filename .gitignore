@@ -314,6 +314,8 @@ FakesAssemblies/
 # Node.js Tools for Visual Studio
 .ntvs_analysis.dat
 node_modules/
+dist/
+.vite/
 
 # Visual Studio 6 build log
 *.plg
@@ -383,6 +385,10 @@ MSBuild_Logs/
 # AWS SAM Build and Temporary Artifacts folder
 .aws-sam
 
+# AWS / CDK
+cdk.out/
+*.tsbuildinfo
+
 # NVidia Nsight GPU debugger configuration file
 *.nvuser
 
@@ -427,3 +433,17 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local data
+.local/

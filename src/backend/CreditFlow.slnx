@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="CreditFlow.Api/CreditFlow.Api.csproj" />
+  <Project Path="CreditFlow.AuditWorker/CreditFlow.AuditWorker.csproj" />
+  <Project Path="CreditFlow.DecisionWorker/CreditFlow.DecisionWorker.csproj" />
+  <Project Path="CreditFlow.Domain/CreditFlow.Domain.csproj" />
+  <Project Path="CreditFlow.Infrastructure/CreditFlow.Infrastructure.csproj" />
+  <Project Path="CreditFlow.Tests/CreditFlow.Tests.csproj" />
+</Solution>
