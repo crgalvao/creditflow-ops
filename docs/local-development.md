@@ -21,6 +21,7 @@ CreditFlow Ops uses Docker Compose for local infrastructure dependencies:
 
 - DynamoDB Local on port `8000`
 - LocalStack on port `4566` for SNS and SQS
+- LocalStack is pinned to `localstack/localstack:4.4.0` to keep local development reproducible and avoid unexpected behavior from the `latest` tag.
 
 Start services from the repository root:
 
