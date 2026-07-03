@@ -1,0 +1,23 @@
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: creditflow-dynamodb-local
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+    working_dir: /home/dynamodblocal
+    user: root
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.local/dynamodb:/home/dynamodblocal/data
+
+  localstack:
+    image: localstack/localstack:4.4.0
+    container_name: creditflow-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sns,sqs
+      - DEBUG=0
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./.local/localstack:/var/lib/localstack
