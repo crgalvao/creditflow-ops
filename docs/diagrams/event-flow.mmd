@@ -1,0 +1,31 @@
+flowchart TD
+  A["POST /applications"] --> B["Write Submitted application to DynamoDB"]
+  B --> C["Publish LoanApplicationSubmitted"]
+  C --> D["SNS Domain Events Topic"]
+
+  D -->|Filter: LoanApplicationSubmitted| E["Decision Queue"]
+  D -->|All domain events| F["Audit Queue"]
+
+  E --> G["Decision Worker"]
+  G --> H["Update status: Processing"]
+  H --> I["Run decision rules"]
+  I --> J{"Decision result"}
+
+  J --> K["Approved"]
+  J --> L["ManualReview"]
+  J --> M["Rejected"]
+  J --> N["Failed"]
+
+  K --> O["Publish LoanDecisionCompleted"]
+  L --> O
+  M --> O
+  N --> P["Publish LoanDecisionFailed"]
+
+  O --> D
+  P --> D
+
+  F --> Q["Audit Worker"]
+  Q --> R["Write audit event to DynamoDB"]
+
+  E -. failure after retries .-> DLQ1["Decision DLQ"]
+  F -. failure after retries .-> DLQ2["Audit DLQ"]

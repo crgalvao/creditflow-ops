@@ -1,0 +1,27 @@
+sequenceDiagram
+  actor Analyst
+  participant Web as React App
+  participant Cognito as Cognito
+  participant API as CreditFlow.Api
+  participant DDB as DynamoDB
+  participant SNS as SNS Domain Topic
+  participant SQS as Decision Queue
+  participant Worker as Decision Worker
+
+  Analyst->>Web: Fill and submit loan application
+  Web->>Cognito: Use authenticated session
+  Web->>API: POST /applications
+  API->>API: Validate request and idempotency key
+  API->>DDB: Store application as Submitted
+  API->>DDB: Store timeline event
+  API->>SNS: Publish LoanApplicationSubmitted
+  SNS->>SQS: Deliver event to Decision Queue
+  API-->>Web: 202 Accepted with applicationId
+  Web-->>Analyst: Show submitted status
+
+  SQS->>Worker: Invoke worker with queued message
+  Worker->>DDB: Mark application as Processing
+  Worker->>Worker: Run deterministic decision rules
+  Worker->>DDB: Store decision and update final status
+  Worker->>DDB: Store timeline event
+  Worker->>SNS: Publish LoanDecisionCompleted
