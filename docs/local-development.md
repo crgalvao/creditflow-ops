@@ -4,7 +4,30 @@ This document explains how to run CreditFlow Ops locally.
 
 ## Prerequisites
 
-TODO.
+Install:
+
+- Docker
+- Docker Compose
+- .NET SDK
+- Node.js
+- pnpm
+- AWS CLI, optional but useful for validating local AWS-compatible services
+
+If using WSL, keep the repository inside the Linux filesystem rather than `/mnt/c` for better performance.
+
+## Local Services
+
+CreditFlow Ops uses Docker Compose for local infrastructure dependencies:
+
+- DynamoDB Local on port `8000`
+- LocalStack on port `4566` for SNS and SQS
+- LocalStack is pinned to `localstack/localstack:4.4.0` to keep local development reproducible and avoid unexpected behavior from the `latest` tag.
+
+Start services from the repository root:
+
+```bash
+docker compose up -d
+```
 
 ## Local Dependencies
 
