@@ -1,0 +1,31 @@
+flowchart LR
+  User["Credit Analyst"] --> Web["React + TypeScript + Vite"]
+
+  Web --> Cognito["Amazon Cognito<br/>Hosted UI + User Pool"]
+  Web --> ApiGw["API Gateway HTTP API<br/>JWT Authorizer"]
+
+  Cognito --> ApiGw
+
+  subgraph AWS["AWS Serverless Boundary"]
+    ApiGw --> ApiLambda["CreditFlow.Api<br/>.NET Lambda"]
+
+    ApiLambda --> DDB["DynamoDB<br/>CreditFlowTable"]
+    ApiLambda --> SNS["SNS Topic<br/>creditflow-domain-events"]
+
+    SNS --> DecisionQueue["SQS<br/>Decision Queue"]
+    SNS --> AuditQueue["SQS<br/>Audit Queue"]
+
+    DecisionQueue --> DecisionWorker["CreditFlow.DecisionWorker<br/>.NET Lambda"]
+    AuditQueue --> AuditWorker["CreditFlow.AuditWorker<br/>.NET Lambda"]
+
+    DecisionWorker --> DDB
+    DecisionWorker --> SNS
+    AuditWorker --> DDB
+
+    DecisionQueue --> DecisionDLQ["SQS DLQ<br/>Decision DLQ"]
+    AuditQueue --> AuditDLQ["SQS DLQ<br/>Audit DLQ"]
+
+    ApiLambda --> CloudWatch["CloudWatch<br/>Logs + Metrics"]
+    DecisionWorker --> CloudWatch
+    AuditWorker --> CloudWatch
+  end

@@ -1,0 +1,12 @@
+flowchart TD
+  A["Open CreditFlow Ops"] --> B["Login with Cognito"]
+  B --> C["Dashboard"]
+  C --> D["Create loan application"]
+  D --> E["Submit application"]
+  E --> F["Receive tracking ID"]
+  F --> G["Application detail page"]
+  G --> H["Poll application status"]
+  H --> I{"Final status?"}
+  I -->|No| H
+  I -->|Yes| J["Show decision result"]
+  J --> K["Show decision reasons and timeline"]
