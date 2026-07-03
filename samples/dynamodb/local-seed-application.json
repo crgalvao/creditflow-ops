@@ -1,0 +1,21 @@
+{
+  "PK": { "S": "APP#app_local_demo_001" },
+  "SK": { "S": "METADATA" },
+  "EntityType": { "S": "LoanApplication" },
+  "ApplicationId": { "S": "app_local_demo_001" },
+  "OwnerUserId": { "S": "local-user-001" },
+  "BorrowerName": { "S": "Demo Coffee Imports Ltd" },
+  "BorrowerTaxId": { "S": "DEMO-0001" },
+  "Industry": { "S": "Wholesale" },
+  "MonthsInBusiness": { "N": "48" },
+  "RequestedAmount": { "N": "80000" },
+  "MonthlyRevenue": { "N": "65000" },
+  "Purpose": { "S": "Inventory financing" },
+  "Status": { "S": "Submitted" },
+  "CreatedAt": { "S": "2026-07-03T12:00:00Z" },
+  "UpdatedAt": { "S": "2026-07-03T12:00:00Z" },
+  "GSI1PK": { "S": "USER#local-user-001" },
+  "GSI1SK": { "S": "CREATED#2026-07-03T12:00:00Z#APP#app_local_demo_001" },
+  "GSI2PK": { "S": "STATUS#Submitted" },
+  "GSI2SK": { "S": "UPDATED#2026-07-03T12:00:00Z#APP#app_local_demo_001" }
+}
