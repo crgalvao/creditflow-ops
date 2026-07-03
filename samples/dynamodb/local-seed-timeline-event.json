@@ -1,0 +1,11 @@
+{
+  "PK": { "S": "APP#app_local_demo_001" },
+  "SK": { "S": "EVENT#2026-07-03T12:00:00Z#evt_local_demo_001" },
+  "EntityType": { "S": "TimelineEvent" },
+  "ApplicationId": { "S": "app_local_demo_001" },
+  "EventId": { "S": "evt_local_demo_001" },
+  "EventType": { "S": "ApplicationSubmitted" },
+  "Message": { "S": "Application submitted by local seed script." },
+  "CorrelationId": { "S": "corr_local_demo_001" },
+  "Timestamp": { "S": "2026-07-03T12:00:00Z" }
+}
