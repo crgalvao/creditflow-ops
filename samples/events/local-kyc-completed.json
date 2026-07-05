@@ -1,0 +1,13 @@
+{
+  "eventId": "evt_local_kyc_completed_001",
+  "eventType": "KycCompleted",
+  "eventVersion": 1,
+  "correlationId": "corr_local_demo_001",
+  "occurredAt": "2026-07-03T12:00:00Z",
+  "source": "CreditFlow.LocalSeed",
+  "data": {
+    "clientId": "client_local_demo_001",
+    "taxId": "DEMO-0001",
+    "status": "Verified"
+  }
+}

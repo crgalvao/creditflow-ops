@@ -5,6 +5,12 @@ services:
     command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", '[ "$(curl -s -o /dev/null -I -w ''%{http_code}'' http://localhost:8000)" == "400" ]']
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
 
   localstack:
     image: localstack/localstack:4.4.0
@@ -15,3 +21,9 @@ services:
       - SERVICES=sns,sqs
       - DEBUG=0
       - AWS_DEFAULT_REGION=us-east-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 5s

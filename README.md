@@ -24,3 +24,14 @@ src/
 docs/
 samples/
 scripts/
+```
+
+## Root Commands
+
+```bash
+make build        # Build backend and frontend
+make test         # Run backend tests and frontend lint
+make validate     # Full pre-PR validation
+make local-reset  # Hard reset local environment and storage
+make local-init   # Start local services and seed local data
+```

@@ -1,15 +1,14 @@
 {
-  "eventId": "evt_local_loan_submitted_001",
-  "eventType": "LoanApplicationSubmitted",
+  "eventId": "evt_local_credit_requested_001",
+  "eventType": "CreditAssessmentRequested",
   "eventVersion": 1,
   "correlationId": "corr_local_demo_001",
   "occurredAt": "2026-07-03T12:00:00Z",
   "source": "CreditFlow.LocalSeed",
   "data": {
     "applicationId": "app_local_demo_001",
-    "ownerUserId": "local-user-001",
+    "clientId": "client_local_demo_001",
     "taxId": "DEMO-0001",
-    "requestedAmount": 80000,
-    "monthlyRevenue": 65000
+    "requestedAmount": 80000
   }
 }

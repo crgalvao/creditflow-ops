@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AWS_REGION="${AWS_REGION:-us-east-1}"
-AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
-AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"
+export AWS_REGION="${AWS_REGION:-us-east-1}"
+export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
+export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"
 
 DYNAMODB_ENDPOINT="${DYNAMODB_SERVICE_URL:-http://localhost:8000}"
 LOCALSTACK_ENDPOINT="${LOCALSTACK_SERVICE_URL:-http://localhost:4566}"
@@ -13,20 +13,34 @@ TOPIC_NAME="${DOMAIN_EVENTS_TOPIC_NAME:-creditflow-domain-events}"
 
 DECISION_QUEUE_NAME="${DECISION_QUEUE_NAME:-creditflow-decision-queue}"
 DECISION_DLQ_NAME="${DECISION_DLQ_NAME:-creditflow-decision-dlq}"
+
+KYC_QUEUE_NAME="${KYC_QUEUE_NAME:-creditflow-kyc-queue}"
+KYC_DLQ_NAME="${KYC_DLQ_NAME:-creditflow-kyc-dlq}"
+
+CREDIT_QUEUE_NAME="${CREDIT_QUEUE_NAME:-creditflow-credit-queue}"
+CREDIT_DLQ_NAME="${CREDIT_DLQ_NAME:-creditflow-credit-dlq}"
+
 AUDIT_QUEUE_NAME="${AUDIT_QUEUE_NAME:-creditflow-audit-queue}"
 AUDIT_DLQ_NAME="${AUDIT_DLQ_NAME:-creditflow-audit-dlq}"
 
-export AWS_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-
 mkdir -p .local/tmp
 
-echo "Creating local DynamoDB table if needed..."
+echo "Checking local services..."
+aws dynamodb list-tables \
+  --endpoint-url "$DYNAMODB_ENDPOINT" \
+  --region "$AWS_REGION" >/dev/null
+
+aws sns list-topics \
+  --endpoint-url "$LOCALSTACK_ENDPOINT" \
+  --region "$AWS_REGION" >/dev/null
+
+echo "Creating DynamoDB table if needed: $TABLE_NAME"
 
 if aws dynamodb describe-table \
   --table-name "$TABLE_NAME" \
   --endpoint-url "$DYNAMODB_ENDPOINT" \
   --region "$AWS_REGION" >/dev/null 2>&1; then
-  echo "DynamoDB table already exists: $TABLE_NAME"
+  echo "Table already exists."
 else
   aws dynamodb create-table \
     --table-name "$TABLE_NAME" \
@@ -63,14 +77,13 @@ else
     --endpoint-url "$DYNAMODB_ENDPOINT" \
     --region "$AWS_REGION" >/dev/null
 
-  echo "Waiting for DynamoDB table to exist..."
   aws dynamodb wait table-exists \
     --table-name "$TABLE_NAME" \
     --endpoint-url "$DYNAMODB_ENDPOINT" \
     --region "$AWS_REGION"
 fi
 
-echo "Configuring DynamoDB TTL..."
+echo "Enabling TTL..."
 aws dynamodb update-time-to-live \
   --table-name "$TABLE_NAME" \
   --time-to-live-specification "Enabled=true,AttributeName=ExpiresAtEpochSeconds" \
@@ -85,163 +98,151 @@ TOPIC_ARN="$(aws sns create-topic \
   --query TopicArn \
   --output text)"
 
-echo "SNS topic ARN: $TOPIC_ARN"
+create_queue() {
+  local queue_name="$1"
 
-echo "Creating SQS DLQs..."
+  aws sqs create-queue \
+    --queue-name "$queue_name" \
+    --endpoint-url "$LOCALSTACK_ENDPOINT" \
+    --region "$AWS_REGION" \
+    --query QueueUrl \
+    --output text
+}
 
-DECISION_DLQ_URL="$(aws sqs create-queue \
-  --queue-name "$DECISION_DLQ_NAME" \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query QueueUrl \
-  --output text)"
+get_queue_arn() {
+  local queue_url="$1"
 
-AUDIT_DLQ_URL="$(aws sqs create-queue \
-  --queue-name "$AUDIT_DLQ_NAME" \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query QueueUrl \
-  --output text)"
+  aws sqs get-queue-attributes \
+    --queue-url "$queue_url" \
+    --attribute-names QueueArn \
+    --endpoint-url "$LOCALSTACK_ENDPOINT" \
+    --region "$AWS_REGION" \
+    --query "Attributes.QueueArn" \
+    --output text
+}
 
-DECISION_DLQ_ARN="$(aws sqs get-queue-attributes \
-  --queue-url "$DECISION_DLQ_URL" \
-  --attribute-names QueueArn \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query "Attributes.QueueArn" \
-  --output text)"
+set_redrive() {
+  local queue_url="$1"
+  local dlq_arn="$2"
+  local file_path="$3"
 
-AUDIT_DLQ_ARN="$(aws sqs get-queue-attributes \
-  --queue-url "$AUDIT_DLQ_URL" \
-  --attribute-names QueueArn \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query "Attributes.QueueArn" \
-  --output text)"
-
-echo "Creating SQS queues..."
-
-DECISION_QUEUE_URL="$(aws sqs create-queue \
-  --queue-name "$DECISION_QUEUE_NAME" \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query QueueUrl \
-  --output text)"
-
-AUDIT_QUEUE_URL="$(aws sqs create-queue \
-  --queue-name "$AUDIT_QUEUE_NAME" \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query QueueUrl \
-  --output text)"
-
-cat > .local/tmp/decision-queue-attributes.json <<JSON
+  cat > "$file_path" <<REDRIVE_JSON
 {
   "VisibilityTimeout": "60",
-  "RedrivePolicy": "{\"deadLetterTargetArn\":\"$DECISION_DLQ_ARN\",\"maxReceiveCount\":\"3\"}"
+  "RedrivePolicy": "{\"deadLetterTargetArn\":\"$dlq_arn\",\"maxReceiveCount\":\"3\"}"
 }
-JSON
+REDRIVE_JSON
 
-cat > .local/tmp/audit-queue-attributes.json <<JSON
-{
-  "VisibilityTimeout": "60",
-  "RedrivePolicy": "{\"deadLetterTargetArn\":\"$AUDIT_DLQ_ARN\",\"maxReceiveCount\":\"3\"}"
+  aws sqs set-queue-attributes \
+    --queue-url "$queue_url" \
+    --attributes "file://$file_path" \
+    --endpoint-url "$LOCALSTACK_ENDPOINT" \
+    --region "$AWS_REGION" >/dev/null
 }
-JSON
 
-echo "Configuring SQS queue attributes..."
+subscribe_queue() {
+  local queue_arn="$1"
+  local filter_policy="$2"
 
-aws sqs set-queue-attributes \
-  --queue-url "$DECISION_QUEUE_URL" \
-  --attributes file://.local/tmp/decision-queue-attributes.json \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION"
+  local subscription_arn
 
-aws sqs set-queue-attributes \
-  --queue-url "$AUDIT_QUEUE_URL" \
-  --attributes file://.local/tmp/audit-queue-attributes.json \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION"
+  subscription_arn="$(aws sns subscribe \
+    --topic-arn "$TOPIC_ARN" \
+    --protocol sqs \
+    --notification-endpoint "$queue_arn" \
+    --return-subscription-arn \
+    --endpoint-url "$LOCALSTACK_ENDPOINT" \
+    --region "$AWS_REGION" \
+    --query SubscriptionArn \
+    --output text)"
 
-DECISION_QUEUE_ARN="$(aws sqs get-queue-attributes \
-  --queue-url "$DECISION_QUEUE_URL" \
-  --attribute-names QueueArn \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query "Attributes.QueueArn" \
-  --output text)"
+  aws sns set-subscription-attributes \
+    --subscription-arn "$subscription_arn" \
+    --attribute-name RawMessageDelivery \
+    --attribute-value true \
+    --endpoint-url "$LOCALSTACK_ENDPOINT" \
+    --region "$AWS_REGION" >/dev/null
 
-AUDIT_QUEUE_ARN="$(aws sqs get-queue-attributes \
-  --queue-url "$AUDIT_QUEUE_URL" \
-  --attribute-names QueueArn \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query "Attributes.QueueArn" \
-  --output text)"
+  if [ -n "$filter_policy" ]; then
+    aws sns set-subscription-attributes \
+      --subscription-arn "$subscription_arn" \
+      --attribute-name FilterPolicy \
+      --attribute-value "$filter_policy" \
+      --endpoint-url "$LOCALSTACK_ENDPOINT" \
+      --region "$AWS_REGION" >/dev/null
+  fi
 
-echo "Subscribing decision queue to SNS topic..."
+  echo "$subscription_arn"
+}
 
-DECISION_SUBSCRIPTION_ARN="$(aws sns subscribe \
-  --topic-arn "$TOPIC_ARN" \
-  --protocol sqs \
-  --notification-endpoint "$DECISION_QUEUE_ARN" \
-  --return-subscription-arn \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query SubscriptionArn \
-  --output text)"
+echo "Creating DLQs..."
+DECISION_DLQ_URL="$(create_queue "$DECISION_DLQ_NAME")"
+KYC_DLQ_URL="$(create_queue "$KYC_DLQ_NAME")"
+CREDIT_DLQ_URL="$(create_queue "$CREDIT_DLQ_NAME")"
+AUDIT_DLQ_URL="$(create_queue "$AUDIT_DLQ_NAME")"
 
-aws sns set-subscription-attributes \
-  --subscription-arn "$DECISION_SUBSCRIPTION_ARN" \
-  --attribute-name RawMessageDelivery \
-  --attribute-value true \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION"
+DECISION_DLQ_ARN="$(get_queue_arn "$DECISION_DLQ_URL")"
+KYC_DLQ_ARN="$(get_queue_arn "$KYC_DLQ_URL")"
+CREDIT_DLQ_ARN="$(get_queue_arn "$CREDIT_DLQ_URL")"
+AUDIT_DLQ_ARN="$(get_queue_arn "$AUDIT_DLQ_URL")"
 
-aws sns set-subscription-attributes \
-  --subscription-arn "$DECISION_SUBSCRIPTION_ARN" \
-  --attribute-name FilterPolicy \
-  --attribute-value '{"eventType":["LoanApplicationSubmitted"]}' \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION"
+echo "Creating worker queues..."
+DECISION_QUEUE_URL="$(create_queue "$DECISION_QUEUE_NAME")"
+KYC_QUEUE_URL="$(create_queue "$KYC_QUEUE_NAME")"
+CREDIT_QUEUE_URL="$(create_queue "$CREDIT_QUEUE_NAME")"
+AUDIT_QUEUE_URL="$(create_queue "$AUDIT_QUEUE_NAME")"
 
-echo "Subscribing audit queue to SNS topic..."
+set_redrive "$DECISION_QUEUE_URL" "$DECISION_DLQ_ARN" ".local/tmp/decision-redrive.json"
+set_redrive "$KYC_QUEUE_URL" "$KYC_DLQ_ARN" ".local/tmp/kyc-redrive.json"
+set_redrive "$CREDIT_QUEUE_URL" "$CREDIT_DLQ_ARN" ".local/tmp/credit-redrive.json"
+set_redrive "$AUDIT_QUEUE_URL" "$AUDIT_DLQ_ARN" ".local/tmp/audit-redrive.json"
 
-AUDIT_SUBSCRIPTION_ARN="$(aws sns subscribe \
-  --topic-arn "$TOPIC_ARN" \
-  --protocol sqs \
-  --notification-endpoint "$AUDIT_QUEUE_ARN" \
-  --return-subscription-arn \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION" \
-  --query SubscriptionArn \
-  --output text)"
+DECISION_QUEUE_ARN="$(get_queue_arn "$DECISION_QUEUE_URL")"
+KYC_QUEUE_ARN="$(get_queue_arn "$KYC_QUEUE_URL")"
+CREDIT_QUEUE_ARN="$(get_queue_arn "$CREDIT_QUEUE_URL")"
+AUDIT_QUEUE_ARN="$(get_queue_arn "$AUDIT_QUEUE_URL")"
 
-aws sns set-subscription-attributes \
-  --subscription-arn "$AUDIT_SUBSCRIPTION_ARN" \
-  --attribute-name RawMessageDelivery \
-  --attribute-value true \
-  --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$AWS_REGION"
+echo "Subscribing queues..."
 
-cat > .local/local-resources.env <<LOCAL_ENV
+DECISION_FILTER='{"eventType":["LoanApplicationSubmitted","KycCompleted","KycFailed","KycNeedsReview","CreditProfileUpserted"]}'
+KYC_FILTER='{"eventType":["KycCheckRequested"]}'
+CREDIT_FILTER='{"eventType":["CreditAssessmentRequested"]}'
+
+DECISION_SUBSCRIPTION_ARN="$(subscribe_queue "$DECISION_QUEUE_ARN" "$DECISION_FILTER")"
+KYC_SUBSCRIPTION_ARN="$(subscribe_queue "$KYC_QUEUE_ARN" "$KYC_FILTER")"
+CREDIT_SUBSCRIPTION_ARN="$(subscribe_queue "$CREDIT_QUEUE_ARN" "$CREDIT_FILTER")"
+AUDIT_SUBSCRIPTION_ARN="$(subscribe_queue "$AUDIT_QUEUE_ARN" "")"
+
+cat > .local/local-resources.env <<LOCAL_RESOURCES_ENV
 AWS_REGION=$AWS_REGION
+AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 DYNAMODB_SERVICE_URL=$DYNAMODB_ENDPOINT
 LOCALSTACK_SERVICE_URL=$LOCALSTACK_ENDPOINT
 DYNAMODB_TABLE_NAME=$TABLE_NAME
 DOMAIN_EVENTS_TOPIC_ARN=$TOPIC_ARN
+
 DECISION_QUEUE_URL=$DECISION_QUEUE_URL
 DECISION_DLQ_URL=$DECISION_DLQ_URL
+DECISION_QUEUE_ARN=$DECISION_QUEUE_ARN
+DECISION_SUBSCRIPTION_ARN=$DECISION_SUBSCRIPTION_ARN
+
+KYC_QUEUE_URL=$KYC_QUEUE_URL
+KYC_DLQ_URL=$KYC_DLQ_URL
+KYC_QUEUE_ARN=$KYC_QUEUE_ARN
+KYC_SUBSCRIPTION_ARN=$KYC_SUBSCRIPTION_ARN
+
+CREDIT_QUEUE_URL=$CREDIT_QUEUE_URL
+CREDIT_DLQ_URL=$CREDIT_DLQ_URL
+CREDIT_QUEUE_ARN=$CREDIT_QUEUE_ARN
+CREDIT_SUBSCRIPTION_ARN=$CREDIT_SUBSCRIPTION_ARN
+
 AUDIT_QUEUE_URL=$AUDIT_QUEUE_URL
 AUDIT_DLQ_URL=$AUDIT_DLQ_URL
-DECISION_QUEUE_ARN=$DECISION_QUEUE_ARN
 AUDIT_QUEUE_ARN=$AUDIT_QUEUE_ARN
-DECISION_SUBSCRIPTION_ARN=$DECISION_SUBSCRIPTION_ARN
 AUDIT_SUBSCRIPTION_ARN=$AUDIT_SUBSCRIPTION_ARN
-LOCAL_ENV
+LOCAL_RESOURCES_ENV
 
 echo ""
 echo "Local resources created."
-echo "Resource output written to .local/local-resources.env"
-echo ""
-cat .local/local-resources.env
+echo "Saved: .local/local-resources.env"

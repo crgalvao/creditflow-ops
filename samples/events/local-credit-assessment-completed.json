@@ -1,0 +1,15 @@
+{
+  "eventId": "evt_local_credit_completed_001",
+  "eventType": "CreditAssessmentCompleted",
+  "eventVersion": 1,
+  "correlationId": "corr_local_demo_001",
+  "occurredAt": "2026-07-03T12:00:00Z",
+  "source": "CreditFlow.LocalSeed",
+  "data": {
+    "assessmentId": "assess_local_demo_001",
+    "clientId": "client_local_demo_001",
+    "applicationId": "app_local_demo_001",
+    "result": "Approved",
+    "score": 85
+  }
+}
