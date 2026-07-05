@@ -1,0 +1,14 @@
+{
+  "eventId": "evt_local_credit_profile_upserted_001",
+  "eventType": "CreditProfileUpserted",
+  "eventVersion": 1,
+  "correlationId": "corr_local_demo_001",
+  "occurredAt": "2026-07-03T12:00:00Z",
+  "source": "CreditFlow.LocalSeed",
+  "data": {
+    "clientId": "client_local_demo_001",
+    "lastAssessmentId": "assess_local_demo_001",
+    "currentScore": 85,
+    "currentResult": "Approved"
+  }
+}
