@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using CreditFlow.Api.Correlation;
 using CreditFlow.Api.Endpoints;
 using CreditFlow.Api.Errors;
@@ -7,6 +8,11 @@ using CreditFlow.Api.Stores;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Services.AddProblemDetails(options =>
 {
@@ -28,8 +34,8 @@ builder.Services.AddScoped<ApplicationWorkflowService>();
 
 var app = builder.Build();
 
-app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

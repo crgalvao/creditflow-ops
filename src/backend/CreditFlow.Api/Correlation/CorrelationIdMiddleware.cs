@@ -18,9 +18,7 @@ public sealed class CorrelationIdMiddleware(
             context.Response.Headers[CorrelationIdConstants.HeaderName] = correlationId;
             return Task.CompletedTask;
         });
-
-        using var activity = Activity.Current;
-        activity?.SetTag("correlation.id", correlationId);
+        Activity.Current?.SetTag("correlation.id", correlationId);
 
         using var scope = logger.BeginScope(new Dictionary<string, object>
         {
