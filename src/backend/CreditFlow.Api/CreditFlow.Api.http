@@ -1,6 +1,64 @@
 @CreditFlow.Api_HostAddress = http://localhost:5246
+@ApplicationId = replace-with-application-id
 
-GET {{CreditFlow.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health
+GET {{CreditFlow.Api_HostAddress}}/health
 
-###
+### OpenAPI JSON
+GET {{CreditFlow.Api_HostAddress}}/openapi/v1.json
+
+### Submit application
+POST {{CreditFlow.Api_HostAddress}}/applications
+Content-Type: application/json
+X-Correlation-Id: corr_http_demo_001
+
+{
+  "ownerUserId": "local-user-001",
+  "borrower": {
+    "legalName": "Demo Coffee Imports Ltd",
+    "taxId": "DEMO-0001",
+    "industry": "Wholesale",
+    "monthsInBusiness": 48
+  },
+  "requestedAmount": 80000,
+  "monthlyRevenue": 65000,
+  "currency": "USD"
+}
+
+### List applications
+GET {{CreditFlow.Api_HostAddress}}/applications
+
+### Get application
+GET {{CreditFlow.Api_HostAddress}}/applications/{{ApplicationId}}
+
+### Complete KYC - verified
+POST {{CreditFlow.Api_HostAddress}}/internal/kyc/applications/{{ApplicationId}}/complete
+Content-Type: application/json
+X-Correlation-Id: corr_http_demo_001
+
+{
+  "matchesSanctionList": false,
+  "missingDocuments": false
+}
+
+### Complete credit assessment
+POST {{CreditFlow.Api_HostAddress}}/internal/credit/applications/{{ApplicationId}}/assess
+Content-Type: application/json
+X-Correlation-Id: corr_http_demo_001
+
+{
+  "assessmentId": null
+}
+
+### Upsert credit profile and complete decision
+POST {{CreditFlow.Api_HostAddress}}/internal/credit/applications/{{ApplicationId}}/profiles/upsert
+Content-Type: application/json
+X-Correlation-Id: corr_http_demo_001
+
+{}
+
+### Timeline
+GET {{CreditFlow.Api_HostAddress}}/applications/{{ApplicationId}}/timeline
+
+### Decision
+GET {{CreditFlow.Api_HostAddress}}/applications/{{ApplicationId}}/decision
