@@ -5,6 +5,7 @@ using CreditFlow.Api.Errors;
 using CreditFlow.Api.Mapping;
 using CreditFlow.Api.Stores;
 using CreditFlow.Domain.Applications;
+using CreditFlow.Domain.Applications.Enums;
 using CreditFlow.Domain.Applications.ValueObjects;
 using CreditFlow.Domain.CreditDecisioning;
 using CreditFlow.Domain.Kyc;
@@ -84,6 +85,8 @@ public sealed class ApplicationWorkflowService(
         {
             return null;
         }
+
+        EnsureApplicationCanAcceptKycResult(application);
 
         var now = clock.UtcNow;
 
@@ -184,6 +187,8 @@ public sealed class ApplicationWorkflowService(
                 "Cannot upsert credit profile before a credit assessment has been completed.");
         }
 
+        EnsureApplicationCanCompleteDecision(application, assessment);
+
         var now = clock.UtcNow;
 
         var creditProfile =
@@ -205,6 +210,60 @@ public sealed class ApplicationWorkflowService(
         await PublishAndClearAsync(application, correlationId, cancellationToken);
 
         return application.ToCreditProfileUpsertResultResponse(creditProfileSnapshot);
+    }
+
+    private static void EnsureApplicationCanAcceptKycResult(
+        LoanApplication application)
+    {
+        if (application.Status != ApplicationStatus.KycInProgress)
+        {
+            throw new InvalidWorkflowStateException(
+                $"Cannot complete KYC because application '{application.ApplicationId}' is in status '{application.Status}'.");
+        }
+    }
+
+    private static void EnsureApplicationCanCompleteDecision(
+        LoanApplication application,
+        CreditAssessment assessment)
+    {
+        if (application.Status != ApplicationStatus.CreditInProgress)
+        {
+            throw new InvalidWorkflowStateException(
+                $"Cannot complete decision because application '{application.ApplicationId}' is in status '{application.Status}'.");
+        }
+
+        if (application.CreditAssessmentSnapshot is null)
+        {
+            throw new InvalidWorkflowStateException(
+                "Cannot complete decision before the application has recorded a credit assessment snapshot.");
+        }
+
+        if (!string.Equals(
+            assessment.ApplicationId,
+            application.ApplicationId,
+            StringComparison.Ordinal))
+        {
+            throw new InvalidWorkflowStateException(
+                "Cannot complete decision because the assessment application ID does not match the loan application.");
+        }
+
+        if (!string.Equals(
+            assessment.AssessmentId,
+            application.CreditAssessmentSnapshot.AssessmentId,
+            StringComparison.Ordinal))
+        {
+            throw new InvalidWorkflowStateException(
+                "Cannot complete decision because the stored assessment does not match the application assessment snapshot.");
+        }
+
+        if (!string.Equals(
+            assessment.ClientId,
+            application.CreditAssessmentSnapshot.ClientId,
+            StringComparison.Ordinal))
+        {
+            throw new InvalidWorkflowStateException(
+                "Cannot complete decision because the assessment client ID does not match the application assessment snapshot.");
+        }
     }
 
     private async Task PublishAndClearAsync(
