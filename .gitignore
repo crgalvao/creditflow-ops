@@ -447,3 +447,11 @@ Thumbs.db
 
 # Local data
 .local/
+
+# Serverless Framework artifacts
+.serverless/
+.serverless-*/
+.serverless-state.json
+
+# Local AWS/SAM artifacts
+.aws-sam/

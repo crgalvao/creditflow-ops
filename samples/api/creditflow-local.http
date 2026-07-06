@@ -1,0 +1,142 @@
+@baseUrl = http://localhost:5246
+@correlationId = local-demo-correlation-001
+
+### Health
+
+GET {{baseUrl}}/health
+X-Correlation-ID: {{correlationId}}
+
+### OpenAPI
+
+GET {{baseUrl}}/openapi/v1.json
+X-Correlation-ID: {{correlationId}}
+
+### Submit application - likely approved
+
+# @name submitApproved
+POST {{baseUrl}}/applications
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "ownerUserId": "local-user-001",
+  "borrower": {
+    "legalName": "Demo Coffee Imports Ltd",
+    "taxId": "DEMO-APPROVED-001",
+    "industry": "Wholesale",
+    "monthsInBusiness": 84
+  },
+  "requestedAmount": 50000,
+  "monthlyRevenue": 90000,
+  "currency": "USD"
+}
+
+### Submit application - likely manual review due to high requested amount
+
+# @name submitManualReview
+POST {{baseUrl}}/applications
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "ownerUserId": "local-user-001",
+  "borrower": {
+    "legalName": "Demo Growth Retail Ltd",
+    "taxId": "DEMO-REVIEW-001",
+    "industry": "Retail",
+    "monthsInBusiness": 36
+  },
+  "requestedAmount": 120000,
+  "monthlyRevenue": 60000,
+  "currency": "USD"
+}
+
+### Submit application - rejected early by validation / pre-qualification
+
+POST {{baseUrl}}/applications
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "ownerUserId": "local-user-001",
+  "borrower": {
+    "legalName": "Too Small Ltd",
+    "taxId": "DEMO-REJECTED-001",
+    "industry": "Services",
+    "monthsInBusiness": 6
+  },
+  "requestedAmount": 250000,
+  "monthlyRevenue": 10000,
+  "currency": "USD"
+}
+
+### List applications
+
+GET {{baseUrl}}/applications
+X-Correlation-ID: {{correlationId}}
+
+### Get application
+
+GET {{baseUrl}}/applications/{{applicationId}}
+X-Correlation-ID: {{correlationId}}
+
+### Get application timeline
+
+GET {{baseUrl}}/applications/{{applicationId}}/timeline
+X-Correlation-ID: {{correlationId}}
+
+### Get decision
+
+GET {{baseUrl}}/applications/{{applicationId}}/decision
+X-Correlation-ID: {{correlationId}}
+
+### Complete KYC - verified
+
+POST {{baseUrl}}/internal/kyc/applications/{{applicationId}}/complete
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "matchesSanctionList": false,
+  "missingDocuments": false
+}
+
+### Complete KYC - needs review
+
+POST {{baseUrl}}/internal/kyc/applications/{{applicationId}}/complete
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "matchesSanctionList": false,
+  "missingDocuments": true
+}
+
+### Complete KYC - failed
+
+POST {{baseUrl}}/internal/kyc/applications/{{applicationId}}/complete
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "matchesSanctionList": true,
+  "missingDocuments": false
+}
+
+### Complete credit assessment
+
+POST {{baseUrl}}/internal/credit/applications/{{applicationId}}/assess
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{
+  "assessmentId": null
+}
+
+### Upsert credit profile and complete decision
+
+POST {{baseUrl}}/internal/credit/applications/{{applicationId}}/profiles/upsert
+Content-Type: application/json
+X-Correlation-ID: {{correlationId}}
+
+{}
