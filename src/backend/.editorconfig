@@ -1,0 +1,70 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# Modern namespace style
+csharp_style_namespace_declarations = file_scoped:error
+
+# Prefer explicit accessibility
+dotnet_style_require_accessibility_modifiers = always:warning
+
+# Remove unnecessary qualification
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+# Prefer modern language forms where reasonable
+csharp_style_prefer_null_check_over_type_check = true:suggestion
+csharp_style_prefer_pattern_matching = true:suggestion
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_prefer_simple_using_statement = true:suggestion
+csharp_style_prefer_top_level_statements = false:suggestion
+
+# Organize usings
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+[*.cs]
+# 1. Use Collection Expressions (C# 12+) - IDE0300
+# Warns when using 'new List<int> { 1, 2 }' instead of '[1, 2]'
+dotnet_diagnostic.IDE0300.severity = warning
+dotnet_style_prefer_collection_expression = true:warning
+
+# 2. Target-typed new - IDE0090
+# Warns when repeating the type name: 'MyClass c = new MyClass();' -> 'MyClass c = new();'
+dotnet_diagnostic.IDE0090.severity = warning
+csharp_style_implicit_object_creation_when_type_is_apparent = true:warning
+
+# 3. Simplify object initialization - IDE0017
+# Warns when properties are assigned sequentially instead of using an initializer
+dotnet_diagnostic.IDE0017.severity = warning
+dotnet_style_object_initializer = true:warning
+
+# 4. Pattern matching over 'as' with null check - IDE0038
+# Warns when using 'as' then checking for null, instead of 'is Type t'
+dotnet_diagnostic.IDE0038.severity = warning
+csharp_style_pattern_matching_over_as_with_null_check = true:warning
+
+# 5. Use switch expressions - IDE0066
+# Warns when a traditional switch statement can be simplified to a switch expression
+dotnet_diagnostic.IDE0066.severity = warning
+csharp_style_prefer_switch_expression = true:warning
+
+# 6. Null coalescing assignment - IDE0074
+# Warns when using 'if (x == null) x = y;' instead of 'x ??= y;'
+dotnet_diagnostic.IDE0074.severity = warning
+csharp_style_prefer_null_check_over_type_check = true:warning
+
+# 7. Use primary constructors (C# 12+) - IDE0290
+# Warns when a class has a basic constructor that can be converted to a primary constructor
+dotnet_diagnostic.IDE0290.severity = warning
+csharp_style_prefer_primary_constructors = true:warning
