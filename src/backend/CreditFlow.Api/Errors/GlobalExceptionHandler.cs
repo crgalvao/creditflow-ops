@@ -5,53 +5,99 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CreditFlow.Api.Errors;
 
-public sealed partial class GlobalExceptionHandler(
-    ILogger<GlobalExceptionHandler> logger)
-    : IExceptionHandler
+public sealed class GlobalExceptionHandler(
+    IProblemDetailsService problemDetailsService,
+    IHostEnvironment environment,
+    ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var problem = exception switch
+        var statusCode = GetStatusCode(exception);
+        var correlationId = httpContext.GetOrCreateCorrelationId();
+
+        if (statusCode >= StatusCodes.Status500InternalServerError)
         {
-            DomainException domainException => new ProblemDetails
-            {
-                Title = "Business rule violation",
-                Detail = domainException.Message,
-                Status = StatusCodes.Status400BadRequest
-            },
-
-            InvalidWorkflowStateException workflowException => new ProblemDetails
-            {
-                Title = "Invalid workflow state",
-                Detail = workflowException.Message,
-                Status = StatusCodes.Status409Conflict
-            },
-
-            _ => new ProblemDetails
-            {
-                Title = "Unexpected API error",
-                Detail = "An unexpected error occurred while processing the request.",
-                Status = StatusCodes.Status500InternalServerError
-            }
-        };
-
-        if (problem.Status == StatusCodes.Status500InternalServerError)
-        {
-            logger.LogUnexpectedSystemError(exception);
+            logger.LogUnexpectedSystemErrorWithCorrelationId(exception, correlationId);
         }
         else
         {
-            logger.LogBusinessRuleViolation(exception, exception.Message);
+            logger.LogBusinessRuleViolationWithCorrelationId(exception, exception.Message, correlationId);
         }
 
-        problem.Extensions["correlationId"] = httpContext.GetOrCreateCorrelationId();
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = GetTitle(exception),
+            Detail = GetDetail(exception, statusCode),
+            Instance = httpContext.Request.Path
+        };
 
-        httpContext.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
-        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
+        problemDetails.Extensions["correlationId"] = correlationId;
+        problemDetails.Extensions["traceId"] = httpContext.TraceIdentifier;
+
+        if (environment.IsDevelopment())
+        {
+            problemDetails.Extensions["exceptionType"] = exception.GetType().FullName;
+        }
+
+        httpContext.Response.StatusCode = statusCode;
+        httpContext.Response.ContentType = "application/problem+json";
+
+        var written = await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = httpContext,
+            Exception = exception,
+            ProblemDetails = problemDetails
+        });
+
+        if (!written)
+        {
+            await httpContext.Response.WriteAsJsonAsync(
+                problemDetails,
+                cancellationToken);
+        }
 
         return true;
+    }
+
+    private static int GetStatusCode(Exception exception)
+    {
+        return exception switch
+        {
+            InvalidWorkflowStateException => StatusCodes.Status409Conflict,
+            DomainException => StatusCodes.Status400BadRequest,
+            ArgumentException => StatusCodes.Status400BadRequest,
+            BadHttpRequestException => StatusCodes.Status400BadRequest,
+            KeyNotFoundException => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status500InternalServerError
+        };
+    }
+
+    private static string GetTitle(Exception exception)
+    {
+        return exception switch
+        {
+            InvalidWorkflowStateException => "Invalid workflow state",
+            DomainException => "Domain rule violation",
+            ArgumentException => "Invalid request",
+            BadHttpRequestException => "Invalid request",
+            KeyNotFoundException => "Not found",
+            _ => "Unexpected error"
+        };
+    }
+
+    private string GetDetail(Exception exception, int statusCode)
+    {
+        if (environment.IsDevelopment())
+        {
+            return exception.Message;
+        }
+
+        return statusCode >= StatusCodes.Status500InternalServerError
+            ? "An unexpected error occurred while processing the request."
+            : exception.Message;
     }
 }
