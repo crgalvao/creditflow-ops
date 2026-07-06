@@ -99,6 +99,12 @@ public sealed class LoanApplication : AggregateRoot
                 "Cannot record KYC result unless KYC is in progress.");
         }
 
+        if (!string.Equals(kycSnapshot.TaxId, Borrower.TaxId, StringComparison.Ordinal))
+        {
+            throw new DomainException(
+                "Cannot record KYC result because the snapshot tax ID does not match the application borrower.");
+        }
+
         KycSnapshot = kycSnapshot;
         UpdatedAt = now;
 
@@ -129,6 +135,24 @@ public sealed class LoanApplication : AggregateRoot
                 "Cannot record credit assessment unless credit is in progress.");
         }
 
+        if (!string.Equals(creditAssessment.ApplicationId, ApplicationId, StringComparison.Ordinal))
+        {
+            throw new DomainException(
+                "Cannot record credit assessment because the snapshot application ID does not match this loan application.");
+        }
+
+        if (KycSnapshot is null)
+        {
+            throw new DomainException(
+                "Cannot record credit assessment before recording the KYC snapshot.");
+        }
+
+        if (!string.Equals(creditAssessment.ClientId, KycSnapshot.ClientId, StringComparison.Ordinal))
+        {
+            throw new DomainException(
+                "Cannot record credit assessment because the snapshot client ID does not match the KYC client.");
+        }
+
         CreditAssessmentSnapshot = creditAssessment;
         CreditState = ToApplicationCreditState(creditAssessment.Result);
         UpdatedAt = now;
@@ -147,6 +171,18 @@ public sealed class LoanApplication : AggregateRoot
         if (CreditAssessmentSnapshot is null)
         {
             throw new DomainException("Cannot complete decision without a credit assessment snapshot.");
+        }
+
+        if (!string.Equals(creditProfile.ClientId, CreditAssessmentSnapshot.ClientId, StringComparison.Ordinal))
+        {
+            throw new DomainException(
+                "Cannot complete decision because the credit profile client ID does not match the assessment client.");
+        }
+
+        if (!string.Equals(creditProfile.LastAssessmentId, CreditAssessmentSnapshot.AssessmentId, StringComparison.Ordinal))
+        {
+            throw new DomainException(
+                "Cannot complete decision because the credit profile does not reference the recorded assessment.");
         }
 
         CreditProfileSnapshot = creditProfile;

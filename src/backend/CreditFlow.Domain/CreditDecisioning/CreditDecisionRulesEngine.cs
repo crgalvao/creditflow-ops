@@ -20,6 +20,8 @@ public static class CreditDecisionRulesEngine
         KycSnapshot kyc,
         DateTimeOffset now)
     {
+        EnsureSameCurrency(requestedAmount, monthlyRevenue);
+
         if (kyc.Status == KycStatus.Failed)
         {
             return new CreditAssessment(
@@ -35,6 +37,7 @@ public static class CreditDecisionRulesEngine
 
         var score = 50;
         var reasons = new List<string>();
+        var requiresManualKycReview = kyc.Status == KycStatus.NeedsReview;
 
         if (borrower.MonthsInBusiness >= 24)
         {
@@ -47,36 +50,40 @@ public static class CreditDecisionRulesEngine
             reasons.Add("Business operating history is short.");
         }
 
-        if (monthlyRevenue.Amount >= requestedAmount.Amount * 0.5m)
+        if (monthlyRevenue >= requestedAmount * 0.5m)
         {
             score += 15;
             reasons.Add("Monthly revenue supports the requested amount.");
         }
 
-        if (requestedAmount.Amount <= 100_000m)
+        if (requestedAmount <= new Money(100_000m, requestedAmount.Currency))
         {
             score += 10;
             reasons.Add("Requested amount is within the preferred range.");
         }
 
-        if (requestedAmount.Amount > monthlyRevenue.Amount * 3m)
+        if (requestedAmount > monthlyRevenue * 3m)
         {
             score -= 20;
             reasons.Add("Requested amount is high relative to monthly revenue.");
         }
 
-        if (kyc.Status == KycStatus.NeedsReview)
+        if (requiresManualKycReview)
         {
             score -= 20;
             reasons.Add("KYC requires manual review.");
+
+            // An unresolved KYC review must not produce an automatic approval.
+            score = Math.Min(score, 74);
         }
 
         score = Math.Clamp(score, 0, 100);
 
-        var result = score switch
+        var assessmentResult = (requiresManualKycReview, score) switch
         {
-            >= 75 => CreditAssessmentResult.Approved,
-            >= 50 => CreditAssessmentResult.ManualReview,
+            (true, _) => CreditAssessmentResult.ManualReview,
+            (_, >= 75) => CreditAssessmentResult.Approved,
+            (_, >= 50) => CreditAssessmentResult.ManualReview,
             _ => CreditAssessmentResult.Rejected
         };
 
@@ -86,7 +93,7 @@ public static class CreditDecisionRulesEngine
             assessmentId,
             clientId,
             applicationId,
-            result,
+            assessmentResult,
             score,
             reasons,
             offers,
@@ -158,5 +165,19 @@ public static class CreditDecisionRulesEngine
         }
 
         return [];
+    }
+
+    private static void EnsureSameCurrency(
+        Money requestedAmount,
+        Money monthlyRevenue)
+    {
+        if (!string.Equals(
+            requestedAmount.Currency,
+            monthlyRevenue.Currency,
+            StringComparison.Ordinal))
+        {
+            throw new DomainException(
+                $"Currency mismatch: Cannot assess requested amount in {requestedAmount.Currency} with revenue in {monthlyRevenue.Currency}.");
+        }
     }
 }
