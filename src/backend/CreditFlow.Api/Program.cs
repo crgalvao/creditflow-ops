@@ -1,9 +1,9 @@
+using CreditFlow.Infrastructure.DependencyInjection;
 using System.Text.Json.Serialization;
 using CreditFlow.Api.Correlation;
 using CreditFlow.Api.Endpoints;
 using CreditFlow.Api.Errors;
 using CreditFlow.Api.Services;
-using CreditFlow.Api.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,7 +28,7 @@ builder.Services.AddProblemDetails(options =>
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services.AddSingleton<IUtcClock, SystemUtcClock>();
-builder.Services.AddSingleton<ICreditFlowStore, InMemoryCreditFlowStore>();
+builder.Services.AddCreditFlowInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<IDomainEventPublisher, InMemoryDomainEventPublisher>();
 builder.Services.AddScoped<ApplicationWorkflowService>();
 
