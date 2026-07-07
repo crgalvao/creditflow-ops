@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CreditFlow.Domain\CreditFlow.Domain.csproj" />
     <ProjectReference Include="..\CreditFlow.Infrastructure\CreditFlow.Infrastructure.csproj" Condition="Exists('..\CreditFlow.Infrastructure\CreditFlow.Infrastructure.csproj')" />
+    <ProjectReference Include="..\CreditFlow.Infrastructure\CreditFlow.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

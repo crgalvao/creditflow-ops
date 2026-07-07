@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using CreditFlow.Api.Errors;
 using CreditFlow.Api.Services;
-using CreditFlow.Api.Stores;
+using CreditFlow.Infrastructure.Stores;
 
 namespace CreditFlow.Api.Extensions;
 

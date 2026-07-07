@@ -3,7 +3,7 @@ using CreditFlow.Api.Contracts.CreditDecisioning;
 using CreditFlow.Api.Contracts.Kyc;
 using CreditFlow.Api.Errors;
 using CreditFlow.Api.Mapping;
-using CreditFlow.Api.Stores;
+using CreditFlow.Infrastructure.Stores;
 using CreditFlow.Domain.Applications;
 using CreditFlow.Domain.Applications.Enums;
 using CreditFlow.Domain.Applications.ValueObjects;

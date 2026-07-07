@@ -1,5 +1,5 @@
 using CreditFlow.Api.Extensions;
-using CreditFlow.Api.Stores;
+using CreditFlow.Infrastructure.Stores;
 using CreditFlow.Domain.SharedKernel;
 
 namespace CreditFlow.Api.Services;

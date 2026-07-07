@@ -1,4 +1,4 @@
-namespace CreditFlow.Api.Stores;
+namespace CreditFlow.Infrastructure.Stores;
 
 public sealed record DomainEventRecord(
     string ApplicationId,

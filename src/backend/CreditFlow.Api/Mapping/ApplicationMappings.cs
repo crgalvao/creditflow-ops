@@ -1,7 +1,7 @@
 using CreditFlow.Api.Contracts.Applications;
 using CreditFlow.Api.Contracts.CreditDecisioning;
 using CreditFlow.Api.Contracts.Kyc;
-using CreditFlow.Api.Stores;
+using CreditFlow.Infrastructure.Stores;
 using CreditFlow.Domain.Applications;
 using CreditFlow.Domain.Applications.Enums;
 using CreditFlow.Domain.CreditDecisioning;
